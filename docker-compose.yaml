@@ -1,0 +1,89 @@
+version: "3"
+services:
+    proxy:
+        image: nginx
+        restart: unless-stopped
+        ports:
+            - "80:80"
+            - "443:443"
+            - "8080:8080"
+            - "3000:3000"
+        volumes:
+            - "./nginx/conf.d/bitcontrol.conf:/etc/nginx/conf.d/default.conf"
+            - "./nginx/nginx.conf:/etc/nginx/nginx.conf"
+            - "./nginx/fastcgi_params:/etc/nginx/fastcgi_params"
+            - "./nginx/proxy:/etc/nginx/proxy"
+            - "./nginx/ssl:/etc/nginx/ssl"
+        container_name: proxy
+        networks:
+            network1:
+                ipv4_address: 172.18.0.2
+    php:
+        env_file:
+            - ./apps/web/.env
+        build: ./apps/web
+        image: web_php
+        restart: unless-stopped
+        volumes:
+            # html
+            - "./apps/web:/var/www/html"
+            # apache2
+            - "./apache2/sites-available/default.conf:/etc/apache2/sites-available/000-default.conf"
+            - "./apache2/ports.conf:/etc/apache2/ports.conf"
+            # supervisor
+            - "./supervisor/supervisord.conf:/etc/supervisor/supervisord.conf"
+            # cron
+        container_name: php
+        networks:
+            network1:
+                ipv4_address: 172.18.0.3
+        privileged: true
+        cap_add:
+            - ALL
+    nodejs:
+        env_file:
+            - ./apps/node/.env
+        build: ./apps/node
+        image: web_nodejs
+        restart: unless-stopped
+        volumes:
+            # html
+            - "./apps/node:/var/www/html"
+            # apache2
+            # - "./apache2/sites-available/app2.conf:/etc/apache2/sites-available/000-default.conf"
+            # supervisor
+            # - "./supervisor/supervisord.conf:/etc/supervisor/supervisord.conf"
+            # cron
+        container_name: nodejs
+        networks:
+            network1:
+                ipv4_address: 172.18.0.4
+    db:
+        image: mysql:5.7
+        restart: unless-stopped
+        environment:
+            MYSQL_ROOT_PASSWORD: root
+        volumes:
+            - "./mysql/data:/var/lib/mysql"
+            - "./mysql/conf:/etc/mysql"
+        ports:
+            - "3306:3306"
+        container_name: db
+        networks:
+            network1:
+                ipv4_address: 172.18.0.5
+    redis:
+        image: redis
+        restart: unless-stopped
+        ports:
+            - "6379:6379"
+        container_name: redis
+        networks:
+            network1:
+                ipv4_address: 172.18.0.6
+networks:
+    network1:
+        driver: bridge
+        ipam:
+            config:
+                - subnet: "172.18.0.0/24"
